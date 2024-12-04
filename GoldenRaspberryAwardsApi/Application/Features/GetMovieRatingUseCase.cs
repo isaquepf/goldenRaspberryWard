@@ -15,51 +15,63 @@ public class GetMovieRatingUseCase(MovieDbContext context) : IGetMovieRatingUseC
 
     public async Task<GetMovieRatingOutput> ExecuteAsync()
     {
-        IEnumerable<MovieRanking> movieRankings = null;
-        var movies = await _context.Movies.CountAsync();
+        await EnsureMoviesLoadedAsync();
+        var movieRankings = await _context.Movies.ToListAsync();
+        var intervals = CalculateIntervals(movieRankings.Where(p => p.IsWinner));
+        return BuildOutput(intervals);
+    }
 
-        if (movies == 0)
+    private async Task EnsureMoviesLoadedAsync()
+    {
+        if (!await _context.Movies.AnyAsync())
         {
-            movieRankings = GetMovieRankings();
-            _context.Movies.AddRange(movieRankings);
-            _context.SaveChanges();
+            var movieRankings = await LoadCsvMoviesAsync();
+            await _context.Movies.AddRangeAsync(movieRankings);
+            await _context.SaveChangesAsync();
         }
+    }
 
-        movieRankings = _context.Movies.ToList();
+    private async Task<IEnumerable<MovieRanking>> LoadCsvMoviesAsync()
+    {
+        using var reader = new StreamReader(@".\movielist.csv");
+        using var csv = new CsvReader(reader,
+            new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";", Encoding = Encoding.UTF8 });
+        csv.Context.RegisterClassMap<MovieRankingCsvMap>();
+        return await Task.Run(() => csv.GetRecords<MovieRanking>().ToList());
+    }
 
-        var winningMovies = movieRankings.Where(p => p.IsWinner);
+    private List<GetMovieItemOutput> CalculateIntervals(IEnumerable<MovieRanking> winningMovies)
+    {
+        var producers = winningMovies
+            .SelectMany(m => m.Producers.Split(", ").Select(p => new { m.Year, Producer = p }))
+            .GroupBy(p => p.Producer)
+            .Where(g => g.Count() > 1)
+            .Select(g => new { Producer = g.Key, Years = g.OrderBy(p => p.Year).Select(p => p.Year).ToList() })
+            .ToList();
         
-        var producers = winningMovies.SelectMany(m => m.Producers.Split(", ").Select(p => new { m.Year, Producer = p }))
-            .GroupBy(p => p.Producer).Where(g => g.Count() > 1).Select(g =>
-                new { Producer = g.Key, Years = g.OrderBy(p => p.Year).Select(p => p.Year).ToList() }).ToList();
         var intervals = new List<GetMovieItemOutput>();
-        
+
         foreach (var producer in producers)
         {
             for (var i = 0; i < producer.Years.Count - 1; i++)
             {
-                intervals.Add(new GetMovieItemOutput(producer.Producer, producer.Years[i + 1] - producer.Years[i],
-                    producer.Years[i], producer.Years[i + 1]));
+                intervals.Add(new GetMovieItemOutput(
+                    Producer: producer.Producer,
+                    Interval: producer.Years[i + 1] - producer.Years[i],
+                    PreviousWin: producer.Years[i],
+                    FollowingWin: producer.Years[i + 1]));
             }
         }
 
-        var maxIntervalValue = intervals.Max(x => x.Interval);
-        var minIntervalValue = intervals.Min(x => x.Interval);
-        var max = intervals.Where(i => i.Interval == maxIntervalValue).ToList();
-        var min = intervals.Where(i => i.Interval == minIntervalValue).ToList();
-
-        return new GetMovieRatingOutput(Min: [..min], Max: [..max]);
+        return intervals;
     }
 
-    private static IEnumerable<MovieRanking> GetMovieRankings()
+    private GetMovieRatingOutput BuildOutput(List<GetMovieItemOutput> intervals)
     {
-        using var reader = new StreamReader(@".\movielist.csv");
-        using (var csv = new CsvReader(reader,
-                   new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";", Encoding = Encoding.UTF8 }))
-        {
-            csv.Context.RegisterClassMap<MovieRankingCsvMap>();
-            var movieRankings = csv.GetRecords<MovieRanking>().ToList();
-            return movieRankings;
-        }
+        var maxIntervalValue = intervals.Max(x => x.Interval);
+        var minIntervalValue = intervals.Min(x => x.Interval);
+        var maxIntervals = intervals.Where(i => i.Interval == maxIntervalValue).ToList();
+        var minIntervals = intervals.Where(i => i.Interval == minIntervalValue).ToList();
+        return new GetMovieRatingOutput(Min: minIntervals.AsReadOnly(), Max: maxIntervals.AsReadOnly());
     }
 }

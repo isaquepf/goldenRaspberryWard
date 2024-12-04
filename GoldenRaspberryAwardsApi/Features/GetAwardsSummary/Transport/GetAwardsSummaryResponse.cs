@@ -11,7 +11,7 @@ public record GetAwardsSummaryResponse(
         if (output == null)
             return new GetAwardsSummaryResponse(Min: [], Max: []);
         
-        var min = output.Max.Select(p => new GetAwardsSummaryItemResponse(
+        var min = output.Min.Select(p => new GetAwardsSummaryItemResponse(
             Producer: p.Producer,
             Interval: p.Interval,
             PreviousWin: p.PreviousWin,

@@ -1,0 +1,9 @@
+{
+  "runtimeOptions": {
+    "tfm": "net8.0",
+    "framework": {
+      "name": "netcoreapp8.0",
+      "version": "8.0.0"
+    }
+  }
+}
