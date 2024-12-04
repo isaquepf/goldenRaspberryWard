@@ -1,0 +1,12 @@
+﻿services:
+  db:
+    image: "mcr.microsoft.com/mssql/server:2019-GA-ubuntu-16.04"
+    environment:
+      SA_PASSWORD: "Pass_2024"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data_volume:/var/opt/mssql
+volumes:
+  sql_data_volume:

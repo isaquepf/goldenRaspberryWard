@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GoldenRaspberryAwardsApi", "GoldenRaspberryAwardsApi\GoldenRaspberryAwardsApi.csproj", "{929EB20D-96FD-4EE3-ACE6-9EF1FB245CDF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{A4E8F02D-EBD8-47BF-8F96-CA17E6B4F5DD}"
+	ProjectSection(SolutionItems) = preProject
+		compose.yaml = compose.yaml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{B44FEF76-6D95-4B22-9360-4E0CE2658B3E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GoldenRaspberryAwardsApi.Tests", "GoldenRaspberryAwardsApi.Tests\GoldenRaspberryAwardsApi.Tests.csproj", "{F0AF4B53-2E17-478E-9F5F-4DC17F7B1D84}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{929EB20D-96FD-4EE3-ACE6-9EF1FB245CDF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{929EB20D-96FD-4EE3-ACE6-9EF1FB245CDF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{929EB20D-96FD-4EE3-ACE6-9EF1FB245CDF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{929EB20D-96FD-4EE3-ACE6-9EF1FB245CDF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F0AF4B53-2E17-478E-9F5F-4DC17F7B1D84}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F0AF4B53-2E17-478E-9F5F-4DC17F7B1D84}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F0AF4B53-2E17-478E-9F5F-4DC17F7B1D84}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F0AF4B53-2E17-478E-9F5F-4DC17F7B1D84}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F0AF4B53-2E17-478E-9F5F-4DC17F7B1D84} = {B44FEF76-6D95-4B22-9360-4E0CE2658B3E}
+	EndGlobalSection
+EndGlobal
