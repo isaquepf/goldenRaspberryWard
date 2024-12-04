@@ -6,19 +6,29 @@ using GoldenRaspberryAwardsApi.Domain;
 using GoldenRaspberryAwardsApi.Infra;
 using GoldenRaspberryAwardsApi.Infra.CsvConfig;
 using Microsoft.EntityFrameworkCore;
+using IHostingEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
 
 namespace GoldenRaspberryAwardsApi.Application.Features;
 
-public class GetMovieRatingUseCase(MovieDbContext context) : IGetMovieRatingUseCase
+public class GetMovieRatingUseCase(MovieDbContext context, IHostingEnvironment hostEnv, ILogger<GetMovieRatingUseCase> logger) : IGetMovieRatingUseCase
 {
     private readonly MovieDbContext _context = context;
 
     public async Task<GetMovieRatingOutput> ExecuteAsync()
     {
-        await EnsureMoviesLoadedAsync();
-        var movieRankings = await _context.Movies.ToListAsync();
-        var intervals = CalculateIntervals(movieRankings.Where(p => p.IsWinner));
-        return BuildOutput(intervals);
+        try
+        {
+            await EnsureMoviesLoadedAsync();
+            var movieRankings = await _context.Movies.ToListAsync();
+            var intervals = CalculateIntervals(movieRankings.Where(p => p.IsWinner));
+            return BuildOutput(intervals);
+        }
+        catch (Exception error)
+        {
+            logger.LogError(error, "An error occurs at GetMovieRatingUseCase message: {error.Message}",  error.Message);
+            throw;
+        }
+        
     }
 
     private async Task EnsureMoviesLoadedAsync()
@@ -33,7 +43,9 @@ public class GetMovieRatingUseCase(MovieDbContext context) : IGetMovieRatingUseC
 
     private async Task<IEnumerable<MovieRanking>> LoadCsvMoviesAsync()
     {
-        using var reader = new StreamReader(@".\movielist.csv");
+        var path = Path.Combine(hostEnv.ContentRootPath, "Data", "movielist.csv");
+        
+        using var reader = new StreamReader(path);
         using var csv = new CsvReader(reader,
             new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";", Encoding = Encoding.UTF8 });
         csv.Context.RegisterClassMap<MovieRankingCsvMap>();
