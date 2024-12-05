@@ -16,7 +16,7 @@ public class MovieRanking
     public string Winner { get; set; }
 
 
-    public bool IsWinner => Winner == "yes";
+    public bool IsWinner => Winner.Contains("yes", StringComparison.InvariantCultureIgnoreCase);
 
     
 }

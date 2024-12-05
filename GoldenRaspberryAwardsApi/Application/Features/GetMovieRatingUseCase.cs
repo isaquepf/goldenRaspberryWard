@@ -6,11 +6,14 @@ using GoldenRaspberryAwardsApi.Domain;
 using GoldenRaspberryAwardsApi.Infra;
 using GoldenRaspberryAwardsApi.Infra.CsvConfig;
 using Microsoft.EntityFrameworkCore;
-using IHostingEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
+using MoreLinq;
 
 namespace GoldenRaspberryAwardsApi.Application.Features;
 
-public class GetMovieRatingUseCase(MovieDbContext context, IHostingEnvironment hostEnv, ILogger<GetMovieRatingUseCase> logger) : IGetMovieRatingUseCase
+public class GetMovieRatingUseCase(
+    MovieDbContext context,
+    IWebHostEnvironment hostEnv,
+    ILogger<GetMovieRatingUseCase> logger) : IGetMovieRatingUseCase
 {
     private readonly MovieDbContext _context = context;
 
@@ -25,10 +28,9 @@ public class GetMovieRatingUseCase(MovieDbContext context, IHostingEnvironment h
         }
         catch (Exception error)
         {
-            logger.LogError(error, "An error occurs at GetMovieRatingUseCase message: {error.Message}",  error.Message);
+            logger.LogError(error, "An error occurs at GetMovieRatingUseCase message: {error.Message}", error.Message);
             throw;
         }
-        
     }
 
     private async Task EnsureMoviesLoadedAsync()
@@ -44,7 +46,7 @@ public class GetMovieRatingUseCase(MovieDbContext context, IHostingEnvironment h
     private async Task<IEnumerable<MovieRanking>> LoadCsvMoviesAsync()
     {
         var path = Path.Combine(hostEnv.ContentRootPath, "Data", "movielist.csv");
-        
+
         using var reader = new StreamReader(path);
         using var csv = new CsvReader(reader,
             new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";", Encoding = Encoding.UTF8 });
@@ -54,28 +56,25 @@ public class GetMovieRatingUseCase(MovieDbContext context, IHostingEnvironment h
 
     private List<GetMovieItemOutput> CalculateIntervals(IEnumerable<MovieRanking> winningMovies)
     {
-        var producers = winningMovies
-            .SelectMany(m => m.Producers.Split(", ").Select(p => new { m.Year, Producer = p }))
-            .GroupBy(p => p.Producer)
-            .Where(g => g.Count() > 1)
-            .Select(g => new { Producer = g.Key, Years = g.OrderBy(p => p.Year).Select(p => p.Year).ToList() })
-            .ToList();
-        
         var intervals = new List<GetMovieItemOutput>();
+        var producers = winningMovies.Where(m => m.Winner == "yes")
+            .SelectMany(m => m.Producers.Split(", ").Select(p => new { m.Year, Producer = p })).GroupBy(p => p.Producer)
+            .Select(g => new { g.Key, Years = g.Select(x => x.Year).OrderBy(y => y).ToList() }).SelectMany(g =>
+                g.Years.Zip(g.Years.Skip(1),
+                    (prevYear, nextYear) => new GetMovieItemOutput(
+                        Producer: g.Key,
+                        Interval: nextYear - prevYear,
+                        PreviousWin: prevYear,
+                        FollowingWin: nextYear)));
 
-        foreach (var producer in producers)
-        {
-            for (var i = 0; i < producer.Years.Count - 1; i++)
-            {
-                intervals.Add(new GetMovieItemOutput(
-                    Producer: producer.Producer,
-                    Interval: producer.Years[i + 1] - producer.Years[i],
-                    PreviousWin: producer.Years[i],
-                    FollowingWin: producer.Years[i + 1]));
-            }
-        }
-
-        return intervals;
+        
+        
+        var minInterval = producers.OrderBy(p => p.Interval).FirstOrDefault();
+        var maxInterval = producers.OrderByDescending(p => p.Interval).FirstOrDefault();
+        
+        if (minInterval != null) intervals.Add(minInterval);
+        if (maxInterval != null) intervals.Add(maxInterval);
+        return intervals;   
     }
 
     private GetMovieRatingOutput BuildOutput(List<GetMovieItemOutput> intervals)
