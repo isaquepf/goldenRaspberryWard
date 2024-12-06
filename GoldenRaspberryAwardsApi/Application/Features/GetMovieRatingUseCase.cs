@@ -7,6 +7,7 @@ using GoldenRaspberryAwardsApi.Infra;
 using GoldenRaspberryAwardsApi.Infra.CsvConfig;
 using Microsoft.EntityFrameworkCore;
 using MoreLinq;
+using MoreLinq.Extensions;
 
 namespace GoldenRaspberryAwardsApi.Application.Features;
 
@@ -22,8 +23,13 @@ public class GetMovieRatingUseCase(
         try
         {
             await EnsureMoviesLoadedAsync();
+
             var movieRankings = await _context.Movies.ToListAsync();
-            var intervals = CalculateIntervals(movieRankings.Where(p => p.IsWinner));
+
+            var movies = movieRankings.Where(p => p.IsWinner);
+
+            var intervals = CalculateIntervals(movies);
+
             return BuildOutput(intervals);
         }
         catch (Exception error)
@@ -56,25 +62,46 @@ public class GetMovieRatingUseCase(
 
     private List<GetMovieItemOutput> CalculateIntervals(IEnumerable<MovieRanking> winningMovies)
     {
-        var intervals = new List<GetMovieItemOutput>();
-        var producers = winningMovies.Where(m => m.Winner == "yes")
-            .SelectMany(m => m.Producers.Split(", ").Select(p => new { m.Year, Producer = p })).GroupBy(p => p.Producer)
-            .Select(g => new { g.Key, Years = g.Select(x => x.Year).OrderBy(y => y).ToList() }).SelectMany(g =>
-                g.Years.Zip(g.Years.Skip(1),
-                    (prevYear, nextYear) => new GetMovieItemOutput(
-                        Producer: g.Key,
-                        Interval: nextYear - prevYear,
-                        PreviousWin: prevYear,
-                        FollowingWin: nextYear)));
+        var producers = winningMovies
+            .SelectMany(m =>
+                m.Producers.Split([", ", " and "], StringSplitOptions.None).Select(p => new { m.Year, Producer = p }))
+            .GroupBy(p => p.Producer)
+            .Select(g => new
+            {
+                Producer = g.Key.Trim(),
+                Years = g.Select(x => x.Year).OrderBy(y => y).ToList()
+            }).Distinct();
 
+        var intervals = new List<GetMovieItemOutput>();
         
+        foreach (var producer in producers)
+        {
+            for (int i = 1; i < producer.Years.Count; i++)
+            {
+                var previousWin = producer.Years[i - 1];
+                var followingWin = producer.Years[i];
+                var interval = new GetMovieItemOutput(
+                    Producer: producer.Producer,
+                    Interval: followingWin - previousWin,
+                    PreviousWin: previousWin,
+                    FollowingWin: followingWin
+                );
+                intervals.Add(interval);
+            }
+        }
         
-        var minInterval = producers.OrderBy(p => p.Interval).FirstOrDefault();
-        var maxInterval = producers.OrderByDescending(p => p.Interval).FirstOrDefault();
+        var minInterval = intervals.OrderBy(p => p.Interval).FirstOrDefault();
+        var maxInterval = intervals.OrderByDescending(p => p.Interval).FirstOrDefault();
+
+        var result = new List<GetMovieItemOutput>();
         
-        if (minInterval != null) intervals.Add(minInterval);
-        if (maxInterval != null) intervals.Add(maxInterval);
-        return intervals;   
+        if (minInterval != null) 
+            result.Add(minInterval);
+        
+        if (maxInterval != null && maxInterval != minInterval) 
+            result.Add(maxInterval);
+
+        return result;
     }
 
     private GetMovieRatingOutput BuildOutput(List<GetMovieItemOutput> intervals)
